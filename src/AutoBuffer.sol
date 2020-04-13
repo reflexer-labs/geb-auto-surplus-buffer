@@ -20,6 +20,7 @@ contract AutoBuffer {
     }
 
     uint256 public min;  // minimum buffer
+    uint256 public max;  // maximum buffer
     uint256 public trim; // minimum change compared to current hump that triggers a new file
     uint256 public cut;  // percentage of debt that should be covered by the buffer
 
@@ -53,6 +54,7 @@ contract AutoBuffer {
         require(min_ > 0, "AutoBuffer/null-minimum");
         wards[msg.sender] = 1;
         min = min_;
+        max = uint(-1);
         vat = VatLike(vat_);
         vow = VowLike(vow_);
     }
@@ -61,6 +63,10 @@ contract AutoBuffer {
     function file(bytes32 what, uint256 val) external note auth {
         require(val > 0, "AutoBuffer/null-val");
         if (what == "min") min = val;
+        else if (what == "max") {
+          require(max >= min, "AutoBuffer/max-too-small");
+          max = val;
+        }
         else if (what == "cut") cut = val;
         else if (what == "trim") trim = val;
         else revert("AutoBuffer/file-unrecognized-param");
@@ -102,6 +108,7 @@ contract AutoBuffer {
         uint cur   = mul(cut, vat.debt()) / RAY;
         uint past  = vow.hump();
         uint hump_ = (both(cur > min, delta(cur, past))) ? cur : past;
+        hump_      = (both(max != uint(-1), hump_ > max)) ? max : hump_;
         hump_      = (hump_ < min) ? min : hump_;
         vow.file("hump", hump_);
     }
