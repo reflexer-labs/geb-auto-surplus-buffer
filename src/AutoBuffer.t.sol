@@ -2,13 +2,13 @@ pragma solidity ^0.5.15;
 
 import "ds-test/test.sol";
 
-import "./ReflexerAutoFeeBuffer.sol";
+import "./AutoBuffer.sol";
 
-contract ReflexerAutoFeeBufferTest is DSTest {
-    ReflexerAutoFeeBuffer buffer;
+contract AutoBufferTest is DSTest {
+    AutoBuffer autoBuffer;
 
     function setUp() public {
-        buffer = new ReflexerAutoFeeBuffer();
+        autoBuffer = new AutoBuffer(address(0), address(0), 1);
     }
 
     function testFail_basic_sanity() public {
