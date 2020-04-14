@@ -9,18 +9,18 @@ contract VatLike {
     function debt() external view returns (uint);
 }
 
-contract AutoBuffer {
+contract Buff {
     // --- Auth ---
     mapping (address => uint) public wards;
     function rely(address usr) external note auth { wards[usr] = 1; }
     function deny(address usr) external note auth { wards[usr] = 0; }
     modifier auth {
-        require(wards[msg.sender] == 1, "AutoBuffer/not-authorized");
+        require(wards[msg.sender] == 1, "Buff/not-authorized");
         _;
     }
 
-    uint256 public min;  // minimum buffer
-    uint256 public max;  // maximum buffer
+    uint256 public min;  // minimum buffer                                                   [rad]
+    uint256 public max;  // maximum buffer                                                   [rad]
     uint256 public trim; // minimum change compared to current hump that triggers a new file
     uint256 public cut;  // percentage of debt that should be covered by the buffer
 
@@ -51,7 +51,7 @@ contract AutoBuffer {
       address vow_,
       uint256 min_
     ) public {
-        require(min_ > 0, "AutoBuffer/null-minimum");
+        require(min_ > 0, "Buff/null-minimum");
         wards[msg.sender] = 1;
         min = min_;
         max = uint(-1);
@@ -61,25 +61,27 @@ contract AutoBuffer {
 
     // --- Administration ---
     function file(bytes32 what, uint256 val) external note auth {
-        require(val > 0, "AutoBuffer/null-val");
+        require(val > 0, "Buff/null-val");
         if (what == "min") min = val;
         else if (what == "max") {
-          require(max >= min, "AutoBuffer/max-too-small");
+          require(val >= min, "Buff/max-too-small");
           max = val;
         }
         else if (what == "cut") cut = val;
         else if (what == "trim") trim = val;
-        else revert("AutoBuffer/file-unrecognized-param");
+        else revert("Buff/file-unrecognized-param");
     }
     function file(bytes32 what, address addr) external note auth {
-        require(addr != address(0), "AutoBuffer/null-addr");
+        require(addr != address(0), "Buff/null-addr");
         if (what == "vat") vat = VatLike(addr);
         else if (what == "vow") vow = VowLike(addr);
-        else revert("AutoBuffer/file-unrecognized-param");
+        else revert("Buff/file-unrecognized-param");
     }
 
     // --- Math ---
-    uint constant RAY = 10 ** 27;
+    uint constant WAD      = 10 ** 18;
+    uint constant RAD      = 10 ** 45;
+    uint constant THOUSAND = 1000;
     function add(uint x, uint y) internal pure returns (uint z) {
         require((z = x + y) >= x);
     }
@@ -98,18 +100,19 @@ contract AutoBuffer {
     function order(uint x, uint y) internal pure returns (uint a, uint b) {
         (a, b) = (x >= y) ? (x, y) : (y, x);
     }
-    function delta(uint x, uint y) internal view returns (bool) {
-        (uint a, uint b) = order(x, y);
-        return sub(a, b) >= trim;
+    function delta(uint cur, uint past) internal view returns (bool) {
+        (uint x, uint y) = order(cur, past);
+        if (past == 0) return true;
+        return mul(sub(x, y), THOUSAND) / (past / WAD) >= trim;
     }
 
     // --- Buffer Adjustment ---
     function adjust() external {
-        uint cur   = mul(cut, vat.debt()) / RAY;
+        uint cur   = mul(cut, vat.debt()) / THOUSAND;
         uint past  = vow.hump();
         uint hump_ = (both(cur > min, delta(cur, past))) ? cur : past;
         hump_      = (both(max != uint(-1), hump_ > max)) ? max : hump_;
-        hump_      = (hump_ < min) ? min : hump_;
+        hump_      = (cur < min) ? min : cur;
         vow.file("hump", hump_);
     }
 }
