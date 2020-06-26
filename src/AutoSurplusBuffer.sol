@@ -1,12 +1,12 @@
-pragma solidity ^0.5.15;
+pragma solidity ^0.6.7;
 
-contract AccountingEngineLike {
-    function surplusBuffer() external view returns (uint);
-    function modifyParameters(bytes32,uint) external;
+abstract contract AccountingEngineLike {
+    function surplusBuffer() virtual external view returns (uint);
+    function modifyParameters(bytes32,uint) virtual external;
 }
 
-contract CDPEngineLike {
-    function globalDebt() external view returns (uint);
+abstract contract CDPEngineLike {
+    function globalDebt() virtual external view returns (uint);
 }
 
 contract AutoSurplusBuffer {
@@ -37,7 +37,7 @@ contract AutoSurplusBuffer {
 
     uint256 public minimumBufferSize;  // minimum buffer                                     [rad]
     uint256 public maximumBufferSize;  // maximum buffer                                     [rad]
-    uint256 public minimumDebtChange;  // minimum change compared to current hump that triggers a new file
+    uint256 public minimumDebtChange;  // minimum change compared to current hump that triggers a new modifyParameters() call
     uint256 public coveredDebt;        // percentage of debt that should be covered by the buffer
     uint256 public contractEnabled;
 
@@ -49,7 +49,7 @@ contract AutoSurplusBuffer {
         assembly {
             // log an 'anonymous' event with a constant 6 words of calldata
             // and four indexed topics: the selector and the first three args
-            let mark := msize                         // end of memory ensures zero
+            let mark := msize()                       // end of memory ensures zero
             mstore(0x40, add(mark, 288))              // update free memory pointer
             mstore(mark, 0x20)                        // bytes type data offset
             mstore(add(mark, 0x20), 224)              // bytes size (padded)
@@ -138,8 +138,8 @@ contract AutoSurplusBuffer {
         uint debtToCover   = mul(coveredDebt, cdpEngine.globalDebt()) / THOUSAND;
         uint currentBuffer = accountingEngine.surplusBuffer();
         newBuffer          = (exceedsChange(currentBuffer, debtToCover) >= minimumDebtChange) ? debtToCover : currentBuffer;
-        newBuffer        = (newBuffer <= minimumBufferSize) ? minimumBufferSize : newBuffer;
-        newBuffer        = (newBuffer >= maximumBufferSize) ? maximumBufferSize : newBuffer;
+        newBuffer          = (newBuffer <= minimumBufferSize) ? minimumBufferSize : newBuffer;
+        newBuffer          = (newBuffer >= maximumBufferSize) ? maximumBufferSize : newBuffer;
     }
 
     // --- Buffer Adjustment ---

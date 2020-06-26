@@ -1,31 +1,37 @@
-pragma solidity ^0.5.15;
+pragma solidity ^0.6.7;
 
 import "ds-test/test.sol";
 
 import "./AutoSurplusBuffer.sol";
 
 contract AccountingEngine is AccountingEngineLike {
-    uint public surplusBuffer;
+    uint _surplusBuffer;
 
     constructor(uint surplusBuffer_) public {
-        surplusBuffer = surplusBuffer_;
+        _surplusBuffer = surplusBuffer_;
     }
 
-    function modifyParameters(bytes32 parameter, uint val) external {
-        if (parameter == "surplusBuffer") surplusBuffer = val;
+    function modifyParameters(bytes32 parameter, uint val) override external {
+        if (parameter == "surplusBuffer") _surplusBuffer = val;
         else revert("AccountingEngine/modify-unrecognized-param");
+    }
+    function surplusBuffer() override public view returns (uint256) {
+        return _surplusBuffer;
     }
 }
 
 contract CDPEngine is CDPEngineLike {
-    uint public globalDebt;
+    uint _globalDebt;
 
     constructor(uint globalDebt_) public {
-        globalDebt = globalDebt_;
+        _globalDebt = globalDebt_;
     }
 
     function modifyParameters(bytes32 parameter, uint val) external {
-        globalDebt = val;
+        _globalDebt = val;
+    }
+    function globalDebt() override public view returns (uint256) {
+        return _globalDebt;
     }
 }
 
