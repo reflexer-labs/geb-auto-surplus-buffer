@@ -12,7 +12,7 @@ abstract contract StabilityFeeTreasuryLike {
     function pullFunds(address, address, uint) virtual external;
 }
 
-contract AutoSurplusBuffer {
+contract AutoSurplusBufferSetter {
     // --- Auth ---
     mapping (address => uint) public authorizedAccounts;
     /**
@@ -35,7 +35,7 @@ contract AutoSurplusBuffer {
     * @notice Checks whether msg.sender can call an authed function
     **/
     modifier isAuthorized {
-        require(authorizedAccounts[msg.sender] == 1, "AutoSurplusBuffer/account-not-authorized");
+        require(authorizedAccounts[msg.sender] == 1, "AutoSurplusBufferSetter/account-not-authorized");
         _;
     }
 
@@ -86,11 +86,11 @@ contract AutoSurplusBuffer {
       uint256 maxUpdateCallerReward_,
       uint256 perSecondCallerRewardIncrease_
     ) public {
-        require(both(minimumGlobalDebtChange_ > 0, minimumGlobalDebtChange_ <= THOUSAND), "AutoSurplusBuffer/invalid-debt-change");
-        require(both(coveredDebt_ > 0, coveredDebt_ <= THOUSAND), "AutoSurplusBuffer/invalid-covered-debt");
-        require(maxUpdateCallerReward_ > baseUpdateCallerReward_, "AutoSurplusBuffer/invalid-max-reward");
-        require(perSecondCallerRewardIncrease_ >= RAY, "AutoSurplusBuffer/invalid-reward-increase");
-        require(updateDelay_ > 0, "AutoSurplusBuffer/null-update-delay");
+        require(both(minimumGlobalDebtChange_ > 0, minimumGlobalDebtChange_ <= THOUSAND), "AutoSurplusBufferSetter/invalid-debt-change");
+        require(both(coveredDebt_ > 0, coveredDebt_ <= THOUSAND), "AutoSurplusBufferSetter/invalid-covered-debt");
+        require(maxUpdateCallerReward_ > baseUpdateCallerReward_, "AutoSurplusBufferSetter/invalid-max-reward");
+        require(perSecondCallerRewardIncrease_ >= RAY, "AutoSurplusBufferSetter/invalid-reward-increase");
+        require(updateDelay_ > 0, "AutoSurplusBufferSetter/null-update-delay");
 
         authorizedAccounts[msg.sender] = 1;
         minimumBufferSize              = minimumBufferSize_;
@@ -129,44 +129,44 @@ contract AutoSurplusBuffer {
     function modifyParameters(bytes32 parameter, uint256 val) external isAuthorized {
         if (parameter == "minimumBufferSize") minimumBufferSize = val;
         else if (parameter == "maximumBufferSize") {
-          require(val >= minimumBufferSize, "AutoSurplusBuffer/max-buffer-size-too-small");
+          require(val >= minimumBufferSize, "AutoSurplusBufferSetter/max-buffer-size-too-small");
           maximumBufferSize = val;
         }
         else if (parameter == "minimumGlobalDebtChange") {
-          require(both(val > 0, val <= THOUSAND), "AutoSurplusBuffer/invalid-debt-change");
+          require(both(val > 0, val <= THOUSAND), "AutoSurplusBufferSetter/invalid-debt-change");
           minimumGlobalDebtChange = val;
         }
         else if (parameter == "coveredDebt") {
-          require(both(val > 0, val <= THOUSAND), "AutoSurplusBuffer/invalid-covered-debt");
+          require(both(val > 0, val <= THOUSAND), "AutoSurplusBufferSetter/invalid-covered-debt");
           coveredDebt = val;
         }
         else if (parameter == "baseUpdateCallerReward") {
           baseUpdateCallerReward = val;
         }
         else if (parameter == "maxUpdateCallerReward") {
-          require(val > baseUpdateCallerReward, "AutoSurplusBuffer/invalid-max-reward");
+          require(val > baseUpdateCallerReward, "AutoSurplusBufferSetter/invalid-max-reward");
           maxUpdateCallerReward = val;
         }
         else if (parameter == "perSecondCallerRewardIncrease") {
-          require(val >= RAY, "AutoSurplusBuffer/invalid-reward-increase");
+          require(val >= RAY, "AutoSurplusBufferSetter/invalid-reward-increase");
           perSecondCallerRewardIncrease = val;
         }
         else if (parameter == "maxRewardIncreaseDelay") {
-          require(val > 0, "AutoSurplusBuffer/invalid-max-increase-delay");
+          require(val > 0, "AutoSurplusBufferSetter/invalid-max-increase-delay");
           maxRewardIncreaseDelay = val;
         }
         else if (parameter == "updateDelay") {
-          require(val > 0, "AutoSurplusBuffer/null-update-delay");
+          require(val > 0, "AutoSurplusBufferSetter/null-update-delay");
           updateDelay = val;
         }
-        else revert("AutoSurplusBuffer/modify-unrecognized-param");
+        else revert("AutoSurplusBufferSetter/modify-unrecognized-param");
         emit ModifyParameters(parameter, val);
     }
     function modifyParameters(bytes32 parameter, address addr) external isAuthorized {
-        require(addr != address(0), "AutoSurplusBuffer/null-address");
+        require(addr != address(0), "AutoSurplusBufferSetter/null-address");
         if (parameter == "accountingEngine") accountingEngine = AccountingEngineLike(addr);
         else if (parameter == "treasury") treasury = StabilityFeeTreasuryLike(addr);
-        else revert("AutoSurplusBuffer/modify-unrecognized-param");
+        else revert("AutoSurplusBufferSetter/modify-unrecognized-param");
         emit ModifyParameters(parameter, addr);
     }
 
@@ -260,15 +260,16 @@ contract AutoSurplusBuffer {
         return multiply(deltaDebt, THOUSAND) / lastRecordedGlobalDebt;
     }
     function calculateNewBuffer(uint currentGlobalDebt) public view returns (uint newBuffer) {
-        uint debtToCover = multiply(coveredDebt, currentGlobalDebt) / THOUSAND;
-        debtToCover      = (debtToCover > maximumBufferSize) ? maximumBufferSize : debtToCover;
-        debtToCover      = (debtToCover < minimumBufferSize) ? minimumBufferSize : debtToCover;
+        if (currentGlobalDebt >= uint(-1) / coveredDebt) return maximumBufferSize;
+        newBuffer = multiply(coveredDebt, currentGlobalDebt) / THOUSAND;
+        newBuffer = both(newBuffer > maximumBufferSize, maximumBufferSize > 0) ? maximumBufferSize : newBuffer;
+        newBuffer = (newBuffer < minimumBufferSize) ? minimumBufferSize : newBuffer;
     }
 
     // --- Buffer Adjustment ---
     function adjustSurplusBuffer(address feeReceiver) external {
         // Check delay between calls
-        require(either(subtract(now, lastUpdateTime) >= updateDelay, lastUpdateTime == 0), "AutoSurplusBuffer/wait-more");
+        require(either(subtract(now, lastUpdateTime) >= updateDelay, lastUpdateTime == 0), "AutoSurplusBufferSetter/wait-more");
         // Get the caller's reward
         uint256 callerReward = getCallerReward();
         // Store the timestamp of the update
@@ -277,7 +278,7 @@ contract AutoSurplusBuffer {
         // Get the current global debt
         uint currentGlobalDebt = safeEngine.globalDebt();
         // Check that global debt changed enough
-        require(percentageDebtChange(currentGlobalDebt) >= minimumGlobalDebtChange, "AutoSurplusBuffer/small-debt-change");
+        require(percentageDebtChange(currentGlobalDebt) >= subtract(THOUSAND, minimumGlobalDebtChange), "AutoSurplusBufferSetter/small-debt-change");
         // Compute the new buffer
         uint newBuffer         = calculateNewBuffer(currentGlobalDebt);
 
