@@ -1,6 +1,7 @@
-pragma solidity ^0.6.7;
+pragma solidity 0.6.7;
 
 abstract contract AccountingEngineLike {
+    function surplusBuffer() virtual public view returns (uint256);
     function modifyParameters(bytes32, uint256) virtual external;
 }
 abstract contract SAFEEngineLike {
@@ -277,6 +278,10 @@ contract AutoSurplusBufferSetter {
 
         // Get the current global debt
         uint currentGlobalDebt = safeEngine.globalDebt();
+        // Check if we didn't already reach the max buffer
+        if (both(currentGlobalDebt > lastRecordedGlobalDebt, maximumBufferSize > 0)) {
+          require(accountingEngine.surplusBuffer() < maximumBufferSize, "AutoSurplusBufferSetter/max-buffer-reached");
+        }
         // Check that global debt changed enough
         require(percentageDebtChange(currentGlobalDebt) >= subtract(THOUSAND, minimumGlobalDebtChange), "AutoSurplusBufferSetter/small-debt-change");
         // Compute the new buffer
