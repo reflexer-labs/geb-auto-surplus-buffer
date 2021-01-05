@@ -229,13 +229,15 @@ contract AutoSurplusBufferSetter {
         if (timeElapsed < updateDelay) {
             return 0;
         }
-        uint256 baseReward   = baseUpdateCallerReward;
         uint256 adjustedTime = subtract(timeElapsed, updateDelay);
+        uint256 maxReward    = minimum(maxUpdateCallerReward, treasuryAllowance() / RAY);
+        if (adjustedTime > maxRewardIncreaseDelay) {
+          return maxReward;
+        }
+        uint256 baseReward   = baseUpdateCallerReward;
         if (adjustedTime > 0) {
-            adjustedTime = (adjustedTime > maxRewardIncreaseDelay) ? maxRewardIncreaseDelay : adjustedTime;
             baseReward = rmultiply(rpower(perSecondCallerRewardIncrease, adjustedTime, RAY), baseReward);
         }
-        uint256 maxReward = minimum(maxUpdateCallerReward, treasuryAllowance() / RAY);
         if (baseReward > maxReward) {
             baseReward = maxReward;
         }
