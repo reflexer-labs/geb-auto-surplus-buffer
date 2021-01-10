@@ -1,6 +1,6 @@
 pragma solidity 0.6.7;
 
-import "";
+import "geb-treasury-reimbursement/IncreasingTreasuryReimbursement.sol";
 
 abstract contract AccountingEngineLike {
     function surplusBuffer() virtual public view returns (uint256);
@@ -10,7 +10,7 @@ abstract contract SAFEEngineLike {
     function globalDebt() virtual external view returns (uint256);
 }
 
-contract AutoSurplusBufferSetter {
+contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     // --- Variables ---
     // Delay between updates after which the reward starts to increase
     uint256 public updateDelay;
@@ -27,8 +27,8 @@ contract AutoSurplusBufferSetter {
     // Last timestamp when the median was updated
     uint256 public lastUpdateTime;                                                              // [unix timestamp]
 
-    SAFEEngineLike           public safeEngine;
-    AccountingEngineLike     public accountingEngine;
+    SAFEEngineLike       public safeEngine;
+    AccountingEngineLike public accountingEngine;
 
     constructor(
       address treasury_,
@@ -41,44 +41,25 @@ contract AutoSurplusBufferSetter {
       uint256 baseUpdateCallerReward_,
       uint256 maxUpdateCallerReward_,
       uint256 perSecondCallerRewardIncrease_
-    ) public {
+    ) public IncreasingTreasuryReimbursement(treasury_, baseUpdateCallerReward_, maxUpdateCallerReward_, perSecondCallerRewardIncrease_) {
         require(both(minimumGlobalDebtChange_ > 0, minimumGlobalDebtChange_ <= THOUSAND), "AutoSurplusBufferSetter/invalid-debt-change");
         require(both(coveredDebt_ > 0, coveredDebt_ <= THOUSAND), "AutoSurplusBufferSetter/invalid-covered-debt");
-        require(maxUpdateCallerReward_ > baseUpdateCallerReward_, "AutoSurplusBufferSetter/invalid-max-reward");
-        require(perSecondCallerRewardIncrease_ >= RAY, "AutoSurplusBufferSetter/invalid-reward-increase");
         require(updateDelay_ > 0, "AutoSurplusBufferSetter/null-update-delay");
 
-        authorizedAccounts[msg.sender] = 1;
-        minimumBufferSize              = minimumBufferSize_;
-        maximumBufferSize              = uint(-1);
-        coveredDebt                    = coveredDebt_;
-        minimumGlobalDebtChange        = minimumGlobalDebtChange_;
-        baseUpdateCallerReward         = baseUpdateCallerReward_;
-        maxUpdateCallerReward          = maxUpdateCallerReward_;
-        perSecondCallerRewardIncrease  = perSecondCallerRewardIncrease_;
-        updateDelay                    = updateDelay_;
-        maxRewardIncreaseDelay         = uint(-1);
+        minimumBufferSize        = minimumBufferSize_;
+        maximumBufferSize        = uint(-1);
+        coveredDebt              = coveredDebt_;
+        minimumGlobalDebtChange  = minimumGlobalDebtChange_;
+        updateDelay              = updateDelay_;
 
-        treasury                       = StabilityFeeTreasuryLike(treasury_);
-        safeEngine                     = SAFEEngineLike(safeEngine_);
-        accountingEngine               = AccountingEngineLike(accountingEngine_);
+        safeEngine               = SAFEEngineLike(safeEngine_);
+        accountingEngine         = AccountingEngineLike(accountingEngine_);
 
-        emit AddAuthorization(msg.sender);
         emit ModifyParameters(bytes32("minimumBufferSize"), minimumBufferSize);
         emit ModifyParameters(bytes32("maximumBufferSize"), maximumBufferSize);
         emit ModifyParameters(bytes32("coveredDebt"), coveredDebt);
         emit ModifyParameters(bytes32("minimumGlobalDebtChange"), minimumGlobalDebtChange);
-        emit ModifyParameters(bytes32("treasury"), treasury_);
-        emit ModifyParameters(bytes32("safeEngine"), address(safeEngine));
         emit ModifyParameters(bytes32("accountingEngine"), address(accountingEngine));
-    }
-
-    // --- Boolean Logic ---
-    function both(bool x, bool y) internal pure returns (bool z) {
-      assembly{ z := and(x, y)}
-    }
-    function either(bool x, bool y) internal pure returns (bool z) {
-        assembly{ z := or(x, y)}
     }
 
     // --- Administration ---
@@ -149,7 +130,7 @@ contract AutoSurplusBufferSetter {
         // Check delay between calls
         require(either(subtract(now, lastUpdateTime) >= updateDelay, lastUpdateTime == 0), "AutoSurplusBufferSetter/wait-more");
         // Get the caller's reward
-        uint256 callerReward = getCallerReward();
+        uint256 callerReward = getCallerReward(lastUpdateTime, updateDelay);
         // Store the timestamp of the update
         lastUpdateTime = now;
 
