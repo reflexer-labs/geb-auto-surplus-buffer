@@ -66,9 +66,6 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     function both(bool x, bool y) internal pure returns (bool z) {
       assembly{ z := and(x, y)}
     }
-    function either(bool x, bool y) internal pure returns (bool z) {
-        assembly{ z := or(x, y)}
-    }
 
     // --- Administration ---
     function modifyParameters(bytes32 parameter, uint256 val) external isAuthorized {
