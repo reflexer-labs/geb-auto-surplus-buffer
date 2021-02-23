@@ -27,7 +27,9 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     // Last timestamp when the median was updated
     uint256 public lastUpdateTime;                                                              // [unix timestamp]
 
+    // Safe engine contract
     SAFEEngineLike       public safeEngine;
+    // Accounting engine contract
     AccountingEngineLike public accountingEngine;
 
     constructor(
@@ -68,6 +70,11 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     }
 
     // --- Administration ---
+    /*
+    * @notify Modify an uint256 parameter
+    * @param parameter The name of the parameter to change
+    * @param val The new parameter value
+    */
     function modifyParameters(bytes32 parameter, uint256 val) external isAuthorized {
         if (parameter == "minimumBufferSize") minimumBufferSize = val;
         else if (parameter == "maximumBufferSize") {
@@ -104,6 +111,11 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
         else revert("AutoSurplusBufferSetter/modify-unrecognized-param");
         emit ModifyParameters(parameter, val);
     }
+    /*
+    * @notify Modify an address param
+    * @param parameter The name of the parameter to change
+    * @param addr The new address for the parameter
+    */
     function modifyParameters(bytes32 parameter, address addr) external isAuthorized {
         require(addr != address(0), "AutoSurplusBufferSetter/null-address");
         if (parameter == "accountingEngine") accountingEngine = AccountingEngineLike(addr);
@@ -117,13 +129,22 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     uint internal constant THOUSAND = 1000;
 
     // --- Utils ---
-    function percentageDebtChange(uint currentGlobalDebt) public view returns (uint) {
+    /*
+    * @notify Return the percentage debt change since the last recorded debt amount in the system
+    * @param currentGlobalDebt The current globalDebt in the system
+    */
+    function percentageDebtChange(uint currentGlobalDebt) public view returns (uint256) {
         if (lastRecordedGlobalDebt == 0) return uint(-1);
-        uint deltaDebt = (currentGlobalDebt >= lastRecordedGlobalDebt) ?
+        uint256 deltaDebt = (currentGlobalDebt >= lastRecordedGlobalDebt) ?
           subtract(currentGlobalDebt, lastRecordedGlobalDebt) : subtract(lastRecordedGlobalDebt, currentGlobalDebt);
         return multiply(deltaDebt, THOUSAND) / lastRecordedGlobalDebt;
     }
-    function calculateNewBuffer(uint currentGlobalDebt) public view returns (uint newBuffer) {
+    /*
+    * @notify Return the upcoming surplus buffer
+    * @param currentGlobalDebt The current amount of debt in the system
+    * @return newBuffer The new surplus buffer
+    */
+    function getNewBuffer(uint256 currentGlobalDebt) public view returns (uint newBuffer) {
         if (currentGlobalDebt >= uint(-1) / coveredDebt) return maximumBufferSize;
         newBuffer = multiply(coveredDebt, currentGlobalDebt) / THOUSAND;
         newBuffer = both(newBuffer > maximumBufferSize, maximumBufferSize > 0) ? maximumBufferSize : newBuffer;
@@ -131,6 +152,10 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     }
 
     // --- Buffer Adjustment ---
+    /*
+    * @notify Calculate and set a new surplus buffer
+    * @param feeReceiver The address that will receive the SF reward for calling this function
+    */
     function adjustSurplusBuffer(address feeReceiver) external {
         // Check delay between calls
         require(either(subtract(now, lastUpdateTime) >= updateDelay, lastUpdateTime == 0), "AutoSurplusBufferSetter/wait-more");
@@ -148,7 +173,7 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
         // Check that global debt changed enough
         require(percentageDebtChange(currentGlobalDebt) >= subtract(THOUSAND, minimumGlobalDebtChange), "AutoSurplusBufferSetter/small-debt-change");
         // Compute the new buffer
-        uint newBuffer         = calculateNewBuffer(currentGlobalDebt);
+        uint newBuffer         = getNewBuffer(currentGlobalDebt);
 
         lastRecordedGlobalDebt = currentGlobalDebt;
         accountingEngine.modifyParameters("surplusBuffer", newBuffer);

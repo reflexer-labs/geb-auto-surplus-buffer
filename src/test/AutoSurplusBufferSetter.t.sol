@@ -118,13 +118,13 @@ contract AutoSurplusBufferSetterTest is DSTest {
         assertEq(setter.maxRewardIncreaseDelay(), uint(-1));
     }
     function test_calculateNewBuffer_zero_debt() public {
-        assertEq(setter.calculateNewBuffer(0), minimumBufferSize);
+        assertEq(setter.getNewBuffer(0), minimumBufferSize);
     }
     function test_calculateNewBuffer_max_debt_no_max_buffer_size() public {
-        assertEq(setter.calculateNewBuffer(uint(-1)), uint(-1));
+        assertEq(setter.getNewBuffer(uint(-1)), uint(-1));
     }
-    function test_calculateNewBuffer() public {
-        assertEq(setter.calculateNewBuffer(10000000E45), 500000E45);
+    function test_getNewBuffer() public {
+        assertEq(setter.getNewBuffer(10000000E45), 500000E45);
     }
     function test_adjustSurplusBuffer() public {
         safeEngine.modifyParameters("globalDebt", 500000000E45);
