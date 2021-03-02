@@ -13,7 +13,7 @@ abstract contract SAFEEngineLike {
 contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     // --- Variables ---
     // Delay between updates after which the reward starts to increase
-    uint256 public updateDelay;
+    uint256 public updateDelay;                                                                 // [seconds]
     // The minimum buffer that must be maintained
     uint256 public minimumBufferSize;                                                           // [rad]
     // The max buffer allowed
@@ -90,10 +90,11 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
           coveredDebt = val;
         }
         else if (parameter == "baseUpdateCallerReward") {
+          require(val <= maxUpdateCallerReward, "AutoSurplusBufferSetter/invalid-min-reward");
           baseUpdateCallerReward = val;
         }
         else if (parameter == "maxUpdateCallerReward") {
-          require(val > baseUpdateCallerReward, "AutoSurplusBufferSetter/invalid-max-reward");
+          require(val >= baseUpdateCallerReward, "AutoSurplusBufferSetter/invalid-max-reward");
           maxUpdateCallerReward = val;
         }
         else if (parameter == "perSecondCallerRewardIncrease") {
