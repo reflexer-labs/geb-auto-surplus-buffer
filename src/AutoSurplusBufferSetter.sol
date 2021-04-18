@@ -12,6 +12,8 @@ abstract contract SAFEEngineLike {
 
 contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     // --- Variables ---
+    // Whether buffer adjustments are blocked or not
+    uint256 public stopAdjustments;
     // Delay between updates after which the reward starts to increase
     uint256 public updateDelay;                                                                 // [seconds]
     // The minimum buffer that must be maintained
@@ -109,6 +111,10 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
           require(val > 0, "AutoSurplusBufferSetter/null-update-delay");
           updateDelay = val;
         }
+        else if (parameter == "stopAdjustments") {
+          require(val <= 1, "AutoSurplusBufferSetter/invalid-stop-adjust");
+          stopAdjustments = val;
+        }
         else revert("AutoSurplusBufferSetter/modify-unrecognized-param");
         emit ModifyParameters(parameter, val);
     }
@@ -158,6 +164,8 @@ contract AutoSurplusBufferSetter is IncreasingTreasuryReimbursement {
     * @param feeReceiver The address that will receive the SF reward for calling this function
     */
     function adjustSurplusBuffer(address feeReceiver) external {
+        // Check if adjustments are forbidden or not
+        require(stopAdjustments == 0, "AutoSurplusBufferSetter/cannot-adjust");
         // Check delay between calls
         require(either(subtract(now, lastUpdateTime) >= updateDelay, lastUpdateTime == 0), "AutoSurplusBufferSetter/wait-more");
         // Get the caller's reward

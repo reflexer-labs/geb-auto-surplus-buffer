@@ -131,6 +131,11 @@ contract AutoSurplusBufferSetterTest is DSTest {
         setter.adjustSurplusBuffer(address(0));
         assertEq(accountingEngine.surplusBuffer(), 25000000E45);
     }
+    function testFail_adjustSurplusBuffer_not_allowed() public {
+        safeEngine.modifyParameters("globalDebt", 500000000E45);
+        setter.modifyParameters("stopAdjustments", 1);
+        setter.adjustSurplusBuffer(address(0));
+    }
     function test_adjustSurplusBuffer_result_above_max_limit() public {
         safeEngine.modifyParameters("globalDebt", 500000000E45);
         setter.modifyParameters("maximumBufferSize", 250000E45);
