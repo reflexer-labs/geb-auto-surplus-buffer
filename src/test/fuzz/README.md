@@ -22,8 +22,6 @@ Echidna will generate random values and call all functions failing either for vi
 
 # Results
 
-## IncreasingDiscountCollateralAuctionHouse
-
 ### Fuzzing Bounds
 ```
 Analyzing contract: /Users/fabio/Documents/reflexer/geb-auto-surplus-buffer/src/test/fuzz/AutoSurplusBufferSetterFuzz.sol:FuzzBounds
