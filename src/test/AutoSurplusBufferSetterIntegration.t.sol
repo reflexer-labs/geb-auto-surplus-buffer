@@ -6,23 +6,6 @@ import "ds-token/token.sol";
 import {GebDeployTestBase} from "geb-deploy/test/GebDeploy.t.base.sol";
 import "../AutoSurplusBufferSetter.sol";
 
-// contract Feed {
-//     uint256 public priceFeedValue;
-//     bool public hasValidValue;
-//     constructor(uint256 initPrice, bool initHas) public {
-//         priceFeedValue = uint(initPrice);
-//         hasValidValue = initHas;
-//     }
-//     function set_val(uint newPrice) external {
-//         priceFeedValue = newPrice;
-//     }
-//     function set_has(bool newHas) external {
-//         hasValidValue = newHas;
-//     }
-//     function getResultWithValidity() external returns (uint256, bool) {
-//         return (priceFeedValue, hasValidValue);
-//     }
-// }
 abstract contract WethLike {
     function balanceOf(address) virtual public view returns (uint);
     function approve(address, uint) virtual public;
@@ -33,8 +16,6 @@ abstract contract WethLike {
 }
 
 contract AutoSurplusBufferSetterTest is GebDeployTestBase {
-    // Feed sysCoinFeed;
-
     AutoSurplusBufferSetter setter;
 
     uint256 minimumBufferSize = 20000E45;
@@ -59,8 +40,6 @@ contract AutoSurplusBufferSetterTest is GebDeployTestBase {
 
         safeEngine.modifyParameters("globalDebtCeiling", uint(-1));
         safeEngine.modifyParameters("ETH", "debtCeiling", uint(-1));
-
-        // sysCoinFeed = new Feed(2.015 ether, true);
 
         setter = new AutoSurplusBufferSetter(
             address(stabilityFeeTreasury),
