@@ -1,6 +1,6 @@
 seqLen: 5
 testLimit: 200000
-checkAsserts: true
+checkAsserts: false
 sender: ["0x10000", "0x20000", "0xabc00"]
 coverage: false
 maxTimeDelay: 7257600 # 12 weeks
